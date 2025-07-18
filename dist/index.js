@@ -66,10 +66,10 @@ app.post("/api/v1/signin", (req, res) => __awaiter(void 0, void 0, void 0, funct
 }));
 app.post("/api/v1/content", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const link = req.body.link;
-    const type = req.body.type;
+    const title = req.body.title;
     yield db_1.ContentModel.create({
+        title,
         link,
-        type,
         //@ts-ignore
         userId: req.userId,
         tags: []
@@ -88,12 +88,55 @@ app.get("/api/v1/content", middleware_1.userMiddleware, (req, res) => __awaiter(
         content
     });
 }));
-app.delete("/api/v1/content", (req, res) => {
-});
-app.post("/api/v1/brain/share", (req, res) => {
-});
-app.get("/api/v1/brain/:shareLink", (req, res) => {
-});
+app.delete("/api/v1/content", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const contentId = req.body.contentId;
+    yield db_1.ContentModel.deleteMany({
+        contentId,
+        //@ts-ignore
+        userId: req.userId
+    });
+    res.json({
+        message: "Deleted"
+    });
+}));
+app.post("/api/v1/brain/share", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const shareable = req.body.share;
+    if (shareable) {
+        res.json({
+            message: "Link"
+        });
+    }
+    else {
+        res.json({
+            message: "This is a private link"
+        });
+    }
+}));
+app.get("/api/v1/brain/:shareLink", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { shareLink } = req.params;
+    const content = yield db_1.ContentModel.findOne({
+        link: shareLink
+    }).populate({
+        path: "userId",
+        select: "username"
+    });
+    if (!content) {
+        res.status(404).json({
+            message: "Content not found"
+        });
+    }
+    res.json({
+        //@ts-ignore
+        username: content === null || content === void 0 ? void 0 : content.userId.username,
+        content: [{
+                id: content === null || content === void 0 ? void 0 : content._id,
+                type: content === null || content === void 0 ? void 0 : content.type,
+                link: content === null || content === void 0 ? void 0 : content.link,
+                title: content === null || content === void 0 ? void 0 : content.title,
+                tags: content === null || content === void 0 ? void 0 : content.tags,
+            }]
+    });
+}));
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

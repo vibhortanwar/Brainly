@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
-import { ContentModel, UserModel } from "./db";
+import { ContentModel, TagModel, UserModel } from "./db";
 import { userMiddleware } from "./middleware";
 import dotenv from "dotenv";
 dotenv.config();
@@ -57,19 +57,27 @@ app.post("/api/v1/signin",async (req,res) =>{
 
 app.post("/api/v1/content", userMiddleware, async (req,res) => {
     const link = req.body.link;
-    const type = req.body.type;
+    const title = req.body.title;
+    const tags = req.body.tags;
+    const tagId = [];
+    for(const tag of tags || []){
+        let TAG = await TagModel.findOne({tag});
+
+        if(!TAG){
+            TAG = await TagModel.create({tag});
+        }
+        tagId.push(TAG?._id);
+    }
     await ContentModel.create({
+        title,
         link,
-        type,
         //@ts-ignore
         userId:req.userId,
-        tags: []
+        tags: tagId
     })
-
     return res.json({
         message: "Content added"
     })
-    
 })
 
 app.get("/api/v1/content", userMiddleware, async (req,res) => {
@@ -97,12 +105,45 @@ app.delete("/api/v1/content", async (req,res) => {
     })
 })
 
-app.post("/api/v1/brain/share", (req,res) =>{
-
+app.post("/api/v1/brain/share", userMiddleware, async (req,res) =>{
+    const shareable: boolean=req.body.share;
+    if(shareable){
+        res.json({
+            message: "Link"
+        })
+    }else{
+        res.json({
+            message:"This is a private link"
+        })
+    }
 })
 
-app.get("/api/v1/brain/:shareLink", (req,res) =>{
+app.get("/api/v1/brain/:shareLink", async (req,res) =>{
+    const {shareLink} = req.params;
 
+    const content = await ContentModel.findOne({
+        link:shareLink
+    }).populate({
+        path: "userId",
+        select: "username"
+    });
+
+    if(!content){
+        res.status(404).json({
+            message: "Content not found"
+        })
+    }
+    res.json({
+        //@ts-ignore
+        username: content?.userId.username,
+        content:[{            
+            id: content?._id,
+            type: content?.type,
+            link: content?.link,
+            title: content?.title,
+            tags: content?.tags,
+        }]
+    })
 })
 
 app.listen(PORT, () => {
