@@ -1,9 +1,11 @@
 import express from "express";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
-import { ContentModel, TagModel, UserModel } from "./db";
+import { ContentModel, LinkModel, TagModel, UserModel } from "./db";
 import { userMiddleware } from "./middleware";
 import dotenv from "dotenv";
+import { random } from "./utils";
+import ts from "typescript";
 dotenv.config();
 const JWT_PASSWORD = process.env.JWT_PASSWORD;
 if(!JWT_PASSWORD){
@@ -91,7 +93,7 @@ app.get("/api/v1/content", userMiddleware, async (req,res) => {
     })
 })
 
-app.delete("/api/v1/content", async (req,res) => {
+app.delete("/api/v1/content", userMiddleware, async (req,res) => {
     const contentId = req.body.contentId;
 
     await ContentModel.deleteMany({
@@ -106,43 +108,66 @@ app.delete("/api/v1/content", async (req,res) => {
 })
 
 app.post("/api/v1/brain/share", userMiddleware, async (req,res) =>{
-    const shareable: boolean=req.body.share;
-    if(shareable){
-        res.json({
-            message: "Link"
-        })
+    const share = req.body.share;
+    //@ts-ignore
+    const userId = req.userId;
+    if(share){
+        const existingLink = await LinkModel.findOne({
+            userId: userId
+        });
+        if(existingLink){
+            await LinkModel.updateOne({
+                userId: userId
+            },{
+                hash: random(10)
+            })
+        }else{
+            await LinkModel.create({
+                userId: userId,
+                hash: random(10)
+            })
+        }
+
     }else{
-        res.json({
-            message:"This is a private link"
-        })
+        await LinkModel.deleteOne({
+            userId: userId
+        });
     }
+
+    res.json({
+        message: "Updated share link"
+    })
 })
 
 app.get("/api/v1/brain/:shareLink", async (req,res) =>{
-    const {shareLink} = req.params;
+    const hash = req.params.shareLink;
 
-    const content = await ContentModel.findOne({
-        link:shareLink
-    }).populate({
-        path: "userId",
-        select: "username"
-    });
-
-    if(!content){
-        res.status(404).json({
+    const link = await LinkModel.findOne({
+        hash
+    })
+    if(!link){
+        res.status(411).json({
             message: "Content not found"
         })
+        return;
+    }
+    const content = await ContentModel.find({
+        userId: link.userId
+    })
+
+    const user = await UserModel.findOne({
+        userId: link.userId
+    })
+
+    if(!user){
+        res.status(411).json({
+            message: "User not found"
+        })
+        return;
     }
     res.json({
-        //@ts-ignore
-        username: content?.userId.username,
-        content:[{            
-            id: content?._id,
-            type: content?.type,
-            link: content?.link,
-            title: content?.title,
-            tags: content?.tags,
-        }]
+        username: user.username,
+        content: content
     })
 })
 
