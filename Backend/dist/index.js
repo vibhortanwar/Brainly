@@ -18,6 +18,7 @@ const db_1 = require("./db");
 const middleware_1 = require("./middleware");
 const dotenv_1 = __importDefault(require("dotenv"));
 const utils_1 = require("./utils");
+const cors_1 = __importDefault(require("cors"));
 dotenv_1.default.config();
 const JWT_PASSWORD = process.env.JWT_PASSWORD;
 if (!JWT_PASSWORD) {
@@ -25,6 +26,10 @@ if (!JWT_PASSWORD) {
 }
 const app = (0, express_1.default)();
 const PORT = 3000;
+app.use((0, cors_1.default)({
+    origin: "http://localhost:5173",
+    credentials: true
+}));
 app.use(express_1.default.json());
 app.post("/api/v1/signup", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const username = req.body.username;
@@ -117,17 +122,20 @@ app.post("/api/v1/brain/share", middleware_1.userMiddleware, (req, res) => __awa
         const existingLink = yield db_1.LinkModel.findOne({
             userId: userId
         });
+        const hash = (0, utils_1.random)(10);
         if (existingLink) {
-            yield db_1.LinkModel.updateOne({
-                userId: userId
-            }, {
-                hash: (0, utils_1.random)(10)
+            res.json({
+                message: existingLink.hash
             });
         }
         else {
+            const hash = (0, utils_1.random)(10);
             yield db_1.LinkModel.create({
                 userId: userId,
-                hash: (0, utils_1.random)(10)
+                hash: hash
+            });
+            res.json({
+                message: hash
             });
         }
     }
@@ -135,10 +143,10 @@ app.post("/api/v1/brain/share", middleware_1.userMiddleware, (req, res) => __awa
         yield db_1.LinkModel.deleteOne({
             userId: userId
         });
+        res.json({
+            message: "Removed link"
+        });
     }
-    res.json({
-        message: "Updated share link"
-    });
 }));
 app.get("/api/v1/brain/:shareLink", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const hash = req.params.shareLink;
@@ -155,7 +163,7 @@ app.get("/api/v1/brain/:shareLink", (req, res) => __awaiter(void 0, void 0, void
         userId: link.userId
     });
     const user = yield db_1.UserModel.findOne({
-        userId: link.userId
+        _id: link.userId
     });
     if (!user) {
         res.status(411).json({

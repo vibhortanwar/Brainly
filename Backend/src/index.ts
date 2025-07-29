@@ -6,6 +6,7 @@ import { userMiddleware } from "./middleware";
 import dotenv from "dotenv";
 import { random } from "./utils";
 import ts from "typescript";
+import cors from "cors";
 dotenv.config();
 const JWT_PASSWORD = process.env.JWT_PASSWORD;
 if(!JWT_PASSWORD){
@@ -14,6 +15,11 @@ if(!JWT_PASSWORD){
 
 const app = express();
 const PORT = 3000;
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}))
+
 app.use(express.json());
 
 app.post("/api/v1/signup", async (req,res) =>{
@@ -115,28 +121,29 @@ app.post("/api/v1/brain/share", userMiddleware, async (req,res) =>{
         const existingLink = await LinkModel.findOne({
             userId: userId
         });
+        const hash = random(10);
         if(existingLink){
-            await LinkModel.updateOne({
-                userId: userId
-            },{
-                hash: random(10)
+            res.json({
+                message: existingLink.hash
             })
         }else{
+            const hash = random(10);
             await LinkModel.create({
                 userId: userId,
-                hash: random(10)
+                hash: hash
+            })
+            res.json({
+                message: hash
             })
         }
-
     }else{
         await LinkModel.deleteOne({
             userId: userId
         });
+        res.json({
+            message: "Removed link"
+        })
     }
-
-    res.json({
-        message: "Updated share link"
-    })
 })
 
 app.get("/api/v1/brain/:shareLink", async (req,res) =>{
@@ -156,7 +163,7 @@ app.get("/api/v1/brain/:shareLink", async (req,res) =>{
     })
 
     const user = await UserModel.findOne({
-        userId: link.userId
+        _id: link.userId
     })
 
     if(!user){
