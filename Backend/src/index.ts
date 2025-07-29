@@ -66,7 +66,9 @@ app.post("/api/v1/signin",async (req,res) =>{
 app.post("/api/v1/content", userMiddleware, async (req,res) => {
     const link = req.body.link;
     const title = req.body.title;
+    const type = req.body.type;
     const tags = req.body.tags;
+
     const tagId = [];
     for(const tag of tags || []){
         let TAG = await TagModel.findOne({tag});
@@ -79,6 +81,7 @@ app.post("/api/v1/content", userMiddleware, async (req,res) => {
     await ContentModel.create({
         title,
         link,
+        type,
         //@ts-ignore
         userId:req.userId,
         tags: tagId
